@@ -1,0 +1,125 @@
+{
+  "identifier": "local.laohu.bob.kimi",
+  "version": "1.1.0",
+  "category": "translate",
+  "name": "Kimi 翻译",
+  "summary": "使用 Kimi API 翻译、润色或执行自定义 Prompt。",
+  "icon": "001",
+  "author": "laohu",
+  "minBobVersion": "1.8.0",
+  "options": [
+    {
+      "identifier": "apiKey",
+      "type": "text",
+      "title": "Kimi API Key",
+      "textConfig": {
+        "type": "secure",
+        "placeholderText": "填写 Moonshot 开放平台 API Key"
+      },
+      "desc": "在 platform.kimi.com 创建 API Key；请求发送至 api.moonshot.cn。"
+    },
+    {
+      "identifier": "mode",
+      "type": "menu",
+      "title": "模式",
+      "defaultValue": "translate",
+      "menuValues": [
+        {
+          "title": "翻译",
+          "value": "translate"
+        },
+        {
+          "title": "润色",
+          "value": "polish"
+        },
+        {
+          "title": "自定义 Prompt",
+          "value": "custom"
+        }
+      ],
+      "desc": "翻译为目标语言；润色保留原语言；自定义模式完全使用下方提示词。可添加多个 Kimi 服务，分别设置不同模式。"
+    },
+    {
+      "identifier": "systemPrompt",
+      "type": "text",
+      "title": "角色设定（System Prompt）",
+      "defaultValue": "",
+      "textConfig": {
+        "type": "visible",
+        "height": 200,
+        "placeholderText": "可留空，例如：你是一位写作教练，请分析文本并给出修改建议。",
+        "keyWords": [
+          "$query.text",
+          "$query.detectFromLang",
+          "$query.detectToLang"
+        ]
+      },
+      "desc": "仅自定义模式有效；留空不发送 system 消息。支持 $query.text（输入文本）、$query.detectFromLang（原语言名称）、$query.detectToLang（目标语言名称）。"
+    },
+    {
+      "identifier": "userPrompt",
+      "type": "text",
+      "title": "用户指令（User Prompt）",
+      "defaultValue": "$query.text",
+      "textConfig": {
+        "type": "visible",
+        "height": 200,
+        "keyWords": [
+          "$query.text",
+          "$query.detectFromLang",
+          "$query.detectToLang"
+        ]
+      },
+      "desc": "仅自定义模式有效；留空使用 $query.text。示例：总结以下文本：\\n$query.text。语言变量优先使用 Bob 手动选择，否则使用检测结果，名称为英文。"
+    },
+    {
+      "identifier": "model",
+      "type": "menu",
+      "title": "模型",
+      "defaultValue": "kimi-k2.6",
+      "menuValues": [
+        {
+          "title": "Kimi K2.6",
+          "value": "kimi-k2.6"
+        },
+        {
+          "title": "Kimi K3",
+          "value": "kimi-k3"
+        },
+        {
+          "title": "Kimi K2.7 Code",
+          "value": "kimi-k2.7-code"
+        }
+      ],
+      "desc": "请使用账户支持的模型；验证按钮检查密钥和模型列表，不生成译文。"
+    },
+    {
+      "identifier": "thinking",
+      "type": "menu",
+      "title": "思考模式",
+      "defaultValue": "disabled",
+      "menuValues": [
+        {
+          "title": "快速响应",
+          "value": "disabled"
+        },
+        {
+          "title": "深入思考",
+          "value": "enabled"
+        }
+      ],
+      "desc": "K2.6：关闭/开启思考；K3：低/高推理强度；K2.7 Code 始终思考。仅显示最终内容。"
+    },
+    {
+      "identifier": "maxTokens",
+      "type": "text",
+      "title": "最大输出 Token",
+      "defaultValue": "8192",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "8192"
+      },
+      "desc": "256～32768；思考也会占用输出额度。截断时显示错误，不把不完整译文当作成功。"
+    }
+  ]
+}
