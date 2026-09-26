@@ -1,6 +1,6 @@
 # Kimi 翻译 · Bob 插件
 
-安装包：上一级目录的 `kimi-translate-1.2.0.bobplugin`。
+安装包：上一级目录的 `kimi-translate-1.2.1.bobplugin`。
 
 ## 安装与使用
 
@@ -74,3 +74,7 @@ npm run build
 - [Kimi 模型参数](https://platform.kimi.com/docs/api/models-overview)
 
 实现依据 2026-09-26 读取的官方文档；具体模型访问权限以账户为准。
+
+## 1.2.1 流式回调修复
+
+修复 `query.onStream` 缺少 `{ result: ... }` 外层对象的问题，累计译文放在 `result.toParagraphs` 和 `result.content` 中。对照 [OpenAI Translator 的流式实现](https://github.com/nextai-translator/bob-plugin-openai-translator/blob/main/src/utils/sse.ts) 核验回调结构。新增回归测试，确认 HTTP 完成之前已逐次回传累计译文。安装时请确认 Bob 显示版本为 1.2.1；模拟测试不代替 Bob 内实际显示验收。

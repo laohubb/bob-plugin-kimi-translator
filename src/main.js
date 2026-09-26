@@ -156,7 +156,7 @@ function translate(query, completion) {
                 if (typeof content === 'string' && content) {
                     output += content;
                     if (typeof query.onStream === 'function') {
-                        query.onStream(translationResult(output, from, to, mode));
+                        query.onStream({ result: translationResult(output, from, to, mode) });
                     }
                 }
             } catch (_) { streamParseFailed = true; }

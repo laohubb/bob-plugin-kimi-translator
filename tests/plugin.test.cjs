@@ -53,8 +53,8 @@ test('default request, cancellation, paragraph fidelity and exactly one completi
   r.handler({ response: { statusCode: 200 } });
   r.streamHandler({ text: event('duplicate') });
   assert.equal(h.replies.length, 1);
-  assert.deepEqual(h.streams.map(value => value.content.text), ['你好', '你好\n\n世界']);
-  assert.equal(h.streams[1].toParagraphs[0], '你好\n\n世界');
+  assert.deepEqual(h.streams.map(value => value.result.content.text), ['你好', '你好\n\n世界']);
+  assert.equal(h.streams[1].result.toParagraphs[0], '你好\n\n世界');
   assert.equal(h.replies[0].result.toParagraphs[0], '你好\n\n世界');
   assert.equal(h.replies[0].result.content.text, '你好\n\n世界');
   assert.equal(h.replies[0].result.raw, undefined);
@@ -98,7 +98,7 @@ test('cancelled requests stop emitting streamed content', () => {
   r.streamHandler({ text: event('partial') });
   r.handler({ error: { message: 'cancelled' } });
   r.streamHandler({ text: event('ignored') });
-  assert.deepEqual(h.streams.map(value => value.content.text), ['partial']);
+  assert.deepEqual(h.streams.map(value => value.result.content.text), ['partial']);
   assert.equal(h.replies.length, 1);
   assert.equal(h.replies[0].error.type, 'network');
 });
@@ -167,4 +167,25 @@ test('translation ignores custom settings; invalid mode and blank rendered user 
   for (const options of [{ mode: 'invalid' }, { mode: 'custom', userPrompt: '   ' }]) {
     const h = harness(options); h.run(); assert.equal(h.requests.length, 0); assert.equal(h.replies[0].error.type, 'param');
   }
+});
+
+test('Bob stream envelope displays cumulative text before HTTP completion', () => {
+  const h = harness();
+  const displayed = [];
+  h.query.onStream = frame => {
+    assert.ok(frame.result, 'Bob requires the result envelope');
+    displayed.push(frame.result.toParagraphs.join('\n\n'));
+  };
+  h.run();
+  const r = h.requests[0];
+  r.streamHandler({ text: event('第一段') });
+  assert.deepEqual(displayed, ['第一段']);
+  assert.equal(h.replies.length, 0);
+  r.streamHandler({ text: event('\n第二段') });
+  assert.deepEqual(displayed, ['第一段', '第一段\n第二段']);
+  assert.equal(h.replies.length, 0);
+  r.streamHandler({ text: event(undefined, 'stop') + 'data: [DONE]\n\n' });
+  r.handler({ response: { statusCode: 200 } });
+  assert.equal(h.replies.length, 1);
+  assert.equal(h.replies[0].result.toParagraphs[0], displayed[1]);
 });
