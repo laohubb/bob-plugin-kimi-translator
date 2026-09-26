@@ -63,11 +63,24 @@ function renderPrompt(template, query, from, to) {
     });
 }
 
+function translationResult(text, from, to, mode) {
+    // Keep both shapes: content is used by Bob 1.21+, while toParagraphs supports older Bob versions.
+    var result = { content: { format: 'plain', text: text }, toParagraphs: [text] };
+    if (LANGUAGES[from] && from !== 'auto') { result.from = from; }
+    if (mode === 'translate') { result.to = to; }
+    else if (mode === 'polish' && result.from) { result.to = from; }
+    // Custom prompts may produce any language; do not label them as the selected target.
+    return result;
+}
+
 function translate(query, completion) {
-    var done = once(function(value) {
+    var completed = false;
+    var done = function(value) {
+        if (completed) { return; }
+        completed = true;
         if (typeof query.onCompletion === 'function') { query.onCompletion(value); }
         else { completion(value); }
-    });
+    };
     try {
         var config = configuration();
         var text = query.text;
@@ -108,7 +121,7 @@ function translate(query, completion) {
         var body = {
             model: config.model,
             messages: messages,
-            stream: false
+            stream: true
         };
         if (config.model === 'kimi-k3') {
             body.reasoning_effort = $option.thinking === 'enabled' ? 'high' : 'low';
@@ -119,30 +132,67 @@ function translate(query, completion) {
                 { type: 'enabled', keep: 'all' } :
                 { type: $option.thinking === 'enabled' ? 'enabled' : 'disabled' };
         }
-        $http.request({
+        var streamBuffer = '';
+        var output = '';
+        var finishReason = null;
+        var sawDone = false;
+        var streamParseFailed = false;
+
+        function handleStreamLine(line) {
+            if (completed || line.indexOf('data:') !== 0) { return; }
+            var payload = line.slice(5);
+            if (payload.charAt(0) === ' ') { payload = payload.slice(1); }
+            if (!payload) { return; }
+            if (payload === '[DONE]') { sawDone = true; return; }
+            try {
+                var data = JSON.parse(payload);
+                if (data && data.error) { streamParseFailed = true; return; }
+                var choice = data && data.choices && data.choices[0];
+                if (!choice) { return; }
+                if (choice.finish_reason !== undefined && choice.finish_reason !== null) {
+                    finishReason = choice.finish_reason;
+                }
+                var content = choice.delta && choice.delta.content;
+                if (typeof content === 'string' && content) {
+                    output += content;
+                    if (typeof query.onStream === 'function') {
+                        query.onStream(translationResult(output, from, to, mode));
+                    }
+                }
+            } catch (_) { streamParseFailed = true; }
+        }
+
+        function consumeStream(text, flush) {
+            if (completed) { return; }
+            if (typeof text === 'string' && text) { streamBuffer += text; }
+            var lines = streamBuffer.split(/\r?\n/);
+            streamBuffer = lines.pop();
+            for (var i = 0; i < lines.length; i += 1) { handleStreamLine(lines[i]); }
+            if (flush && streamBuffer) {
+                handleStreamLine(streamBuffer);
+                streamBuffer = '';
+            }
+        }
+
+        $http.streamRequest({
             method: 'POST', url: 'https://api.moonshot.cn/v1/chat/completions',
             header: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.key },
             body: body, timeout: 170, cancelSignal: query.cancelSignal,
+            streamHandler: function(stream) {
+                consumeStream(stream && stream.text, false);
+            },
             handler: function(resp) {
                 try {
+                    consumeStream('', true);
                     var error = responseError(resp);
                     if (error) { done(error); return; }
-                    var data = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data;
-                    var choice = data && data.choices && data.choices[0];
-                    if (choice && choice.finish_reason === 'length') {
+                    if (finishReason === 'length') {
                         done(failure('api', '输出未完成：已达到输出 Token 上限。请缩短原文、提高上限或关闭可选思考模式。')); return;
                     }
-                    if (!choice || choice.finish_reason !== 'stop' || !choice.message ||
-                        typeof choice.message.content !== 'string' || !choice.message.content.trim()) {
+                    if (streamParseFailed || !sawDone || finishReason !== 'stop' || !output.trim()) {
                         done(failure('api', 'Kimi 没有返回完整内容，请稍后重试或更换模型。')); return;
                     }
-                    // A single paragraph entry preserves embedded newlines on Bob 1.20.
-                    var result = { toParagraphs: [choice.message.content] };
-                    if (LANGUAGES[from] && from !== 'auto') { result.from = from; }
-                    if (mode === 'translate') { result.to = to; }
-                    else if (mode === 'polish' && result.from) { result.to = from; }
-                    // Custom prompts may produce any language; do not label them as the selected target.
-                    done({ result: result });
+                    done({ result: translationResult(output, from, to, mode) });
                 } catch (_) { done(failure('api', '无法解析 Kimi 返回的数据，请稍后重试。')); }
             }
         });

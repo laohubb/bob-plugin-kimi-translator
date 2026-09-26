@@ -1,6 +1,6 @@
 # Kimi 翻译 · Bob 插件
 
-安装包：上一级目录的 `kimi-translate-1.1.0.bobplugin`。
+安装包：上一级目录的 `kimi-translate-1.2.0.bobplugin`。
 
 ## 安装与使用
 
@@ -43,7 +43,7 @@ $query.text
 - K2.6 的快速/深入模式分别关闭/开启思考；K3 分别使用 low/high 推理强度；K2.7 Code 始终开启思考。
 - 只显示最终内容，保留模型返回的换行，不展示 `reasoning_content`。
 - 每次翻译独立，不保存或发送此前翻译历史。Preserved Thinking 是多轮上下文机制，此插件无需维护历史思考内容。
-- 非流式输出，完成后一次展示。HTTP 超时 170 秒，插件超时 180 秒，支持 Bob 取消信号。
+- 使用 Kimi Chat Completions SSE 流式输出，Bob 会随着内容生成持续更新结果；最终完整结果仍通过完成回调提交。HTTP 超时 170 秒，插件超时 180 秒，支持 Bob 取消信号。
 - 最大输出 Token 默认 8192，可设置 256～32768。模型思考也消耗额度；截断时提示调整设置或缩短文本。
 - 验证按钮只请求 `/v1/models`；成功表示密钥可访问该模型列表，不保证账户余额充足或翻译请求必定成功。
 - 文本和 API Key 通过 HTTPS 直接发送至 `api.moonshot.cn`。API 使用由 Kimi 账户计费。密钥由 Bob 插件设置管理；代码不写日志、不保存译文、不回传原始响应。
@@ -58,18 +58,19 @@ npm test
 npm run build
 ```
 
-`src/main.js` 只使用 JavaScript 内置对象和 Bob 的 `$http`、`$option`。`tests/plugin.test.cjs` 以 Node VM 模拟 Bob 环境，测试请求参数、语言、响应解析、截断、错误、取消信号透传与请求隔离。打包仅包含根目录 `info.json` 和 `main.js`。
+`src/main.js` 只使用 JavaScript 内置对象和 Bob 的 `$http`、`$option`。`tests/plugin.test.cjs` 以 Node VM 模拟 Bob 环境，测试请求参数、语言、SSE 跨分片解析、累计流式回调、截断、错误、取消信号透传与请求隔离。打包仅包含根目录 `info.json` 和 `main.js`。
 
-当前 14 项模拟测试通过，ZIP 完整性检查通过。这些结果不等于真实 JavaScriptCore/Bob 运行或 Kimi 在线调用通过；最后一步是在 Bob 中填入自己的密钥并实际翻译。
+当前模拟测试与 ZIP 完整性检查应在每次构建后重新执行。这些结果不等于真实 JavaScriptCore/Bob 运行或 Kimi 在线调用通过；最后一步是在 Bob 中填入自己的密钥并实际翻译。
 
-交付目录不是 Git 仓库，因此未生成提交或推送。
+源码由 Git 管理；安装包生成在仓库上一级目录，不进入提交。
 
 ## 参考
 
 - [Bob 插件开发](https://bobtranslate.com/plugin/)
 - [Bob 文本翻译接口](https://bobtranslate.com/plugin/quickstart/translate.html)
+- [Bob 流式 HTTP 接口](https://bobtranslate.com/plugin/api/http.html#http-streamrequest-object-bob-1-8-0-%E5%8F%AF%E7%94%A8)
 - [Bob 插件配置](https://bobtranslate.com/plugin/quickstart/info.html)
-- [Kimi Chat Completions / Preserved Thinking](https://platform.kimi.com/docs/api/chat#preserved-thinking)
+- [Kimi Chat Completions / 流式响应](https://platform.kimi.com/docs/api/chat#streaming)
 - [Kimi 模型参数](https://platform.kimi.com/docs/api/models-overview)
 
-实现依据 2026-09-25 读取的官方文档；具体模型访问权限以账户为准。
+实现依据 2026-09-26 读取的官方文档；具体模型访问权限以账户为准。

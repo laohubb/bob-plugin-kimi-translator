@@ -1,9 +1,9 @@
 {
   "identifier": "local.laohu.bob.kimi",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "category": "translate",
   "name": "Kimi 翻译",
-  "summary": "使用 Kimi API 翻译、润色或执行自定义 Prompt。",
+  "summary": "使用 Kimi API 流式翻译、润色或执行自定义 Prompt。",
   "icon": "001",
   "author": "laohu",
   "minBobVersion": "1.8.0",
