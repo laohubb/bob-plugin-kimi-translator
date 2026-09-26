@@ -1,6 +1,10 @@
 # Kimi 翻译 · Bob 插件
 
-安装包：上一级目录的 `kimi-translate-1.2.1.bobplugin`。
+使用 Kimi API 在 Bob 中流式翻译、润色和执行自定义提示词。支持独立设置 System Prompt 和 User Prompt。
+
+[下载最新安装包](https://github.com/laohubb/bob-plugin-kimi-translator/releases/latest) · [反馈问题](https://github.com/laohubb/bob-plugin-kimi-translator/issues)
+
+需要 macOS、Bob 1.8.0 或更新版本，以及自己的 Kimi API Key。API 调用由服务商按账户计费。
 
 ## 安装与使用
 
@@ -10,7 +14,7 @@
 4. 默认选择 Kimi K2.6、快速响应，点击验证以检查密钥和模型是否可用。
 5. 启用此服务，使用 Bob 划词、截图识别后的文本或输入翻译。源语言与目标语言由 Bob 的选择和检测结果决定。
 
-插件最低要求 Bob 1.8.0；本机检测到 Bob 1.20.0，使用其支持的 `toParagraphs` 格式。未进行 Bob 内安装及真实 API 翻译验证。
+插件最低要求 Bob 1.8.0；同时提供 `toParagraphs` 与新版结果格式。自动化测试使用模拟环境，尚未完成 Bob 内实际翻译和真实 API 调用验收。
 
 ## 模式和自定义提示词
 
@@ -35,7 +39,7 @@
 $query.text
 ```
 
-可在 Bob 中添加多个 Kimi 服务，分别保存不同模式和提示词。更新插件后原服务默认仍为翻译，需主动选择「自定义 Prompt」。截图中的提示词不会被自动设为默认值。
+可在 Bob 中添加多个 Kimi 服务，分别保存不同模式和提示词。更新插件后原服务默认仍为翻译，需主动选择「自定义 Prompt」。
 
 ## 行为与配置
 
@@ -78,3 +82,11 @@ npm run build
 ## 1.2.1 流式回调修复
 
 修复 `query.onStream` 缺少 `{ result: ... }` 外层对象的问题，累计译文放在 `result.toParagraphs` 和 `result.content` 中。对照 [OpenAI Translator 的流式实现](https://github.com/nextai-translator/bob-plugin-openai-translator/blob/main/src/utils/sse.ts) 核验回调结构。新增回归测试，确认 HTTP 完成之前已逐次回传累计译文。安装时请确认 Bob 显示版本为 1.2.1；模拟测试不代替 Bob 内实际显示验收。
+
+## 1.2.2 公开发布准备
+
+补充 GitHub 下载入口和 Bob 自动更新地址，保留原插件标识及已有设置。安装包只包含插件代码和配置定义，不包含 API Key。
+
+## 发布维护
+
+发布前运行 `npm test` 和 `npm run build`，检查安装包 ZIP 完整性，并将其 SHA256、版本、下载链接和发布时间写入根目录 `appcast.json`。Release 附件必须使用计算 SHA256 时的同一份安装包。仓库设置 `bobplugin` topic 后，第三方列表会定期抓取；发布成功不代表已经收录。

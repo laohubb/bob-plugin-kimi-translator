@@ -1,6 +1,6 @@
 {
   "identifier": "local.laohu.bob.kimi",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "category": "translate",
   "name": "Kimi 翻译",
   "summary": "使用 Kimi API 流式翻译、润色或执行自定义 Prompt。",
@@ -121,5 +121,7 @@
       },
       "desc": "256～32768；思考也会占用输出额度。截断时显示错误，不把不完整译文当作成功。"
     }
-  ]
+  ],
+  "homepage": "https://github.com/laohubb/bob-plugin-kimi-translator",
+  "appcast": "https://raw.githubusercontent.com/laohubb/bob-plugin-kimi-translator/main/appcast.json"
 }

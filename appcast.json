@@ -1,0 +1,13 @@
+{
+  "identifier": "local.laohu.bob.kimi",
+  "versions": [
+    {
+      "version": "1.2.2",
+      "desc": "公开发布：Kimi 流式翻译、润色、自定义 Prompt，支持 Bob 自动更新。",
+      "sha256": "248e3eb937bbe9277f27ac01d1275f0f99b3818b1c1d5875de3650fedcd73aa1",
+      "url": "https://github.com/laohubb/bob-plugin-kimi-translator/releases/download/v1.2.2/kimi-translate-1.2.2.bobplugin",
+      "minBobVersion": "1.8.0",
+      "timestamp": 1790386664809
+    }
+  ]
+}
