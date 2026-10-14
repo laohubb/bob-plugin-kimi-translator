@@ -1,10 +1,30 @@
 # Kimi 翻译 · Bob 插件
 
-使用 Kimi API 在 Bob 中流式翻译、润色和执行自定义提示词。支持独立设置 System Prompt 和 User Prompt。
+使用 Kimi API 或本地 Magpie 网关在 Bob 中流式翻译、润色和执行自定义提示词。支持独立设置 System Prompt 和 User Prompt。
 
 [下载最新安装包](https://github.com/laohubb/bob-plugin-kimi-translator/releases/latest) · [反馈问题](https://github.com/laohubb/bob-plugin-kimi-translator/issues)
 
-需要 macOS、Bob 1.8.0 或更新版本，以及自己的 Kimi API Key。API 调用由服务商按账户计费。
+需要 macOS、Bob 1.8.0 或更新版本。Kimi 官方模式需要自己的 Kimi API Key；Magpie 模式使用本机网关及其已配置的模型。调用费用或订阅额度由所选上游服务决定。
+
+## 本地 Magpie 接入（1.3.0）
+
+双击 `kimi-translate-1.3.0.bobplugin` 更新原插件，再在 Bob 的「Kimi 翻译」服务设置中配置：
+
+| 设置 | 值 |
+| --- | --- |
+| 接入方式 | 本地 Magpie 网关 |
+| Magpie 网关地址 | `http://127.0.0.1:3425/v1` |
+| Magpie 网关密钥 | 本机无需鉴权时留空；需要鉴权时填写网关密钥 |
+| Magpie 模型 ID | 默认 `group/smart-easy`，也可填 `group/smart-split` 或模型列表中的完整 ID |
+| Magpie 推理强度 | 默认遵循网关／模型配置；按支持情况可指定 low、medium、high |
+
+保持 Magpie 运行，点击验证检查连接及模型，再进行翻译或自定义处理。地址支持本机 `127.0.0.1`、`localhost`、`[::1]` 及自定义端口，可省略 `/v1`，不接受远程地址。
+
+Magpie 模式不使用「Kimi API Key」「模型」「思考模式」这三个 Kimi 专属设置，也不发送 Kimi 的 `thinking` 参数。请求使用 `/v1/chat/completions` SSE、`max_tokens` 和可选的 `reasoning_effort`，具体上游由 Magpie 转发。输入文本与提示词先发送给本机网关，再由网关发往所选上游；插件不会把密钥写入代码或安装包。
+
+为保留已有配置，升级后接入方式默认仍是 Kimi 官方 API，需主动切换到 Magpie。插件标识及已有提示词、模式和 Kimi 设置保持兼容。1.3.0 安装包本地构建，现有 `appcast.json` 仍指向已发布的 1.2.2；本次不发布 GitHub Release。
+
+2026-10-14 验证：22 项 Node VM 测试通过，安装包 ZIP 完整性检查通过。通过 Node HTTP 适配器运行插件的 `pluginValidate` 与 `translate`，真实请求本地 Magpie 的 `group/smart-easy`，收到 4 次累计流式输出，`Hello, world.` 完整翻译为「你好，世界。」。本机 Bob 版本为 1.21.1，尚未在 Bob 内安装 1.3.0 或验证实际界面显示；真实网关调用不等于 Bob 宿主验收。
 
 ## 安装与使用
 
@@ -50,7 +70,7 @@ $query.text
 - 使用 Kimi Chat Completions SSE 流式输出，Bob 会随着内容生成持续更新结果；最终完整结果仍通过完成回调提交。HTTP 超时 170 秒，插件超时 180 秒，支持 Bob 取消信号。
 - 最大输出 Token 默认 8192，可设置 256～32768。模型思考也消耗额度；截断时提示调整设置或缩短文本。
 - 验证按钮只请求 `/v1/models`；成功表示密钥可访问该模型列表，不保证账户余额充足或翻译请求必定成功。
-- 文本和 API Key 通过 HTTPS 直接发送至 `api.moonshot.cn`。API 使用由 Kimi 账户计费。密钥由 Bob 插件设置管理；代码不写日志、不保存译文、不回传原始响应。
+- Kimi 官方模式的文本和 API Key 通过 HTTPS 直接发送至 `api.moonshot.cn`。Magpie 模式发送至所配置的本机网关，再由网关转发至上游。密钥由 Bob 插件设置管理；代码不写日志、不保存译文、不回传原始响应。
 - 没有自动重试，避免不明确的重复调用费用。
 
 ## 开发与打包

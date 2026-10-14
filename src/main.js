@@ -21,32 +21,62 @@ function once(callback) {
 }
 
 function configuration() {
-    var key = String($option.apiKey || '').trim();
-    if (!key) { throw failure('secretKey', '请在插件设置中填写 Kimi API Key。'); }
+    var provider = String($option.provider || 'kimi');
+    if (['kimi', 'magpie'].indexOf(provider) < 0) {
+        throw failure('param', '请选择 Kimi 或本地 Magpie 接入方式。');
+    }
+    var gateway = provider === 'magpie';
+    var key = String((gateway ? $option.gatewayKey : $option.apiKey) || '').trim();
+    if (!gateway && !key) { throw failure('secretKey', '请在插件设置中填写 Kimi API Key。'); }
     if (/\s/.test(key)) { throw failure('secretKey', 'API Key 中不能包含空格或换行。'); }
-    var model = String($option.model || 'kimi-k2.6');
-    if (['kimi-k2.6', 'kimi-k3', 'kimi-k2.7-code'].indexOf(model) < 0) {
+    var baseUrl = 'https://api.moonshot.cn/v1';
+    if (gateway) {
+        baseUrl = String($option.gatewayUrl || 'http://127.0.0.1:3425/v1').trim();
+        if (!/^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/v1)?\/?$/i.test(baseUrl)) {
+            throw failure('param', 'Magpie 地址须为本机 HTTP/HTTPS 地址，例如 http://127.0.0.1:3425/v1。');
+        }
+        baseUrl = baseUrl.replace(/\/$/, '');
+        if (/\/v1$/i.test(baseUrl)) { baseUrl = baseUrl.replace(/\/v1$/i, '/v1'); }
+        else { baseUrl += '/v1'; }
+    }
+    var model = String(gateway ? ($option.gatewayModel || 'group/smart-easy') : ($option.model || 'kimi-k2.6')).trim();
+    if (gateway ? !/^[a-zA-Z0-9_.~:/-]+$/.test(model) : ['kimi-k2.6', 'kimi-k3', 'kimi-k2.7-code'].indexOf(model) < 0) {
         throw failure('param', '请选择插件支持的模型。');
+    }
+    var effort = String($option.gatewayEffort || 'default');
+    if (gateway && ['default', 'low', 'medium', 'high'].indexOf(effort) < 0) {
+        throw failure('param', '请选择有效的 Magpie 推理强度。');
     }
     var tokens = String($option.maxTokens || '8192').trim();
     if (!/^\d+$/.test(tokens) || Number(tokens) < 256 || Number(tokens) > 32768) {
         throw failure('param', '最大输出 Token 必须为 256～32768 之间的整数。');
     }
-    return { key: key, model: model, tokens: Number(tokens) };
+    return { key: key, model: model, tokens: Number(tokens), baseUrl: baseUrl,
+        gateway: gateway, effort: effort, service: gateway ? 'Magpie' : 'Kimi' };
+}
+
+function requestHeaders(config, json) {
+    var headers = {};
+    if (json) { headers['Content-Type'] = 'application/json'; }
+    if (config.key) { headers.Authorization = 'Bearer ' + config.key; }
+    return headers;
 }
 
 // Do not echo server bodies: they may contain the API key or source text.
-function responseError(resp) {
+function responseError(resp, config) {
+    var service = config.service;
     var status = resp && resp.response && resp.response.statusCode;
-    if (status === 401) { return failure('secretKey', 'Kimi API Key 无效，请检查密钥。'); }
-    if (status === 403) { return failure('api', 'Kimi 拒绝访问，请检查账户或模型权限（403）。'); }
-    if (status === 429) { return failure('api', 'Kimi 请求受限，请检查余额、配额，或稍后重试（429）。'); }
-    if (status === 400) { return failure('param', 'Kimi 拒绝请求，请检查模型、文本长度和输出 Token 上限（400）。'); }
+    if (status === 401) { return failure('secretKey', service + ' 密钥缺失或无效，请检查对应密钥设置。'); }
+    if (status === 403) { return failure('api', service + ' 拒绝访问，请检查账户或模型权限（403）。'); }
+    if (status === 429) { return failure('api', service + ' 请求受限，请检查余额、配额，或稍后重试（429）。'); }
+    if (status === 400) { return failure('param', service + ' 拒绝请求，请检查模型、文本长度和输出 Token 上限（400）。'); }
     if (status && (status < 200 || status >= 300)) {
-        return failure('api', 'Kimi 服务返回 HTTP ' + status + '，请稍后重试。');
+        return failure('api', service + ' 服务返回 HTTP ' + status + '，请稍后重试。');
     }
     if (!resp || resp.error || !status) {
-        return failure('network', '请求未完成，可能已取消、超时或网络不可用。请检查网络后重试。');
+        return failure('network', config.gateway ?
+            'Magpie 请求未完成，请确认本地网关正在运行、地址正确，或检查是否取消或超时。' :
+            '请求未完成，可能已取消、超时或网络不可用。请检查网络后重试。');
     }
     return null;
 }
@@ -123,7 +153,11 @@ function translate(query, completion) {
             messages: messages,
             stream: true
         };
-        if (config.model === 'kimi-k3') {
+        if (config.gateway) {
+            // Let Magpie route the model and translate provider-specific parameters.
+            body.max_tokens = config.tokens;
+            if (config.effort !== 'default') { body.reasoning_effort = config.effort; }
+        } else if (config.model === 'kimi-k3') {
             body.reasoning_effort = $option.thinking === 'enabled' ? 'high' : 'low';
             body.max_completion_tokens = config.tokens;
         } else {
@@ -175,8 +209,8 @@ function translate(query, completion) {
         }
 
         $http.streamRequest({
-            method: 'POST', url: 'https://api.moonshot.cn/v1/chat/completions',
-            header: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.key },
+            method: 'POST', url: config.baseUrl + '/chat/completions',
+            header: requestHeaders(config, true),
             body: body, timeout: 170, cancelSignal: query.cancelSignal,
             streamHandler: function(stream) {
                 consumeStream(stream && stream.text, false);
@@ -184,16 +218,16 @@ function translate(query, completion) {
             handler: function(resp) {
                 try {
                     consumeStream('', true);
-                    var error = responseError(resp);
+                    var error = responseError(resp, config);
                     if (error) { done(error); return; }
                     if (finishReason === 'length') {
                         done(failure('api', '输出未完成：已达到输出 Token 上限。请缩短原文、提高上限或关闭可选思考模式。')); return;
                     }
                     if (streamParseFailed || !sawDone || finishReason !== 'stop' || !output.trim()) {
-                        done(failure('api', 'Kimi 没有返回完整内容，请稍后重试或更换模型。')); return;
+                        done(failure('api', config.service + ' 没有返回完整内容，请稍后重试或更换模型。')); return;
                     }
                     done({ result: translationResult(output, from, to, mode) });
-                } catch (_) { done(failure('api', '无法解析 Kimi 返回的数据，请稍后重试。')); }
+                } catch (_) { done(failure('api', '无法解析 ' + config.service + ' 返回的数据，请稍后重试。')); }
             }
         });
     } catch (error) {
@@ -206,20 +240,20 @@ function pluginValidate(completion) {
     try {
         var config = configuration();
         $http.request({
-            method: 'GET', url: 'https://api.moonshot.cn/v1/models',
-            header: { Authorization: 'Bearer ' + config.key }, timeout: 20,
+            method: 'GET', url: config.baseUrl + '/models',
+            header: requestHeaders(config, false), timeout: 20,
             handler: function(resp) {
-                var error = responseError(resp);
+                var error = responseError(resp, config);
                 if (error) { error.result = false; done(error); return; }
                 try {
                     var data = typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data;
                     if (!data || !Array.isArray(data.data)) { throw new Error('Invalid models'); }
                     var available = data.data.some(function(model) { return model.id === config.model; });
                     if (!available) {
-                        done({ result: false, error: { type: 'param', message: '密钥可用，但模型列表中没有所选模型，请更换模型。' } }); return;
+                        done({ result: false, error: { type: 'param', message: '接口可用，但模型列表中没有所选模型，请检查模型 ID 或密钥的模型权限。' } }); return;
                     }
                     done({ result: true });
-                } catch (_) { done({ result: false, error: { type: 'api', message: '无法解析 Kimi 模型列表。' } }); }
+                } catch (_) { done({ result: false, error: { type: 'api', message: '无法解析 ' + config.service + ' 模型列表。' } }); }
             }
         });
     } catch (error) {

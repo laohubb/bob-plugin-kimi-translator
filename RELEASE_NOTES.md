@@ -1,3 +1,12 @@
+# Kimi 翻译 1.3.0
+
+- 新增本地 Magpie 网关模式，默认地址 `http://127.0.0.1:3425/v1`、模型 `group/smart-easy`。
+- 支持独立网关密钥、自由填写模型 ID 和可选推理强度；本机无需鉴权时可留空密钥。
+- Magpie 请求不发送 Kimi API Key 或 `thinking` 参数。
+- 保留原插件标识、Kimi 接入及翻译／润色／自定义 Prompt；已有服务需主动切换接入方式。
+
+本地安装包为 `kimi-translate-1.3.0.bobplugin`。2026-10-14：22 项 Node VM 测试通过，ZIP 完整性检查通过；通过 Node HTTP 适配器运行插件代码，真实验证本地网关模型列表与 `group/smart-easy` 流式翻译（`Hello, world.` →「你好，世界。」）。尚未在 Bob 内安装或验证界面显示。本次未发布 Release，自动更新清单保留已发布版本。
+
 # Kimi 翻译 1.2.2
 
 - 支持流式翻译、原语言润色和自定义 Prompt。
