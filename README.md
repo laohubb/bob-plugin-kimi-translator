@@ -1,32 +1,26 @@
-# Kimi 翻译 · Bob 插件
+# Kimi 与 Magpie · 两个独立 Bob 插件
 
-使用 Kimi API 或本地 Magpie 网关在 Bob 中流式翻译、润色和执行自定义提示词。支持独立设置 System Prompt 和 User Prompt。
+提供两个独立安装包和服务，各自只显示自己的参数，没有接入方式选择器。两者都支持流式翻译、原语言润色和自定义 Prompt，需要 macOS 与 Bob 1.8.0 或更新版本。
 
-[下载最新安装包](https://github.com/laohubb/bob-plugin-kimi-translator/releases/latest) · [反馈问题](https://github.com/laohubb/bob-plugin-kimi-translator/issues)
+| 插件 | 安装包 | 配置 |
+| --- | --- | --- |
+| Kimi 翻译 | `kimi-translate-1.4.0.bobplugin` | Kimi API Key、Kimi 模型、思考模式、最大输出 Token、模式和提示词 |
+| Magpie | `magpie-1.0.0.bobplugin` | 本地网关地址、网关密钥、模型 ID、推理强度、最大输出 Token、模式和提示词 |
 
-需要 macOS、Bob 1.8.0 或更新版本。Kimi 官方模式需要自己的 Kimi API Key；Magpie 模式使用本机网关及其已配置的模型。调用费用或订阅额度由所选上游服务决定。
+Kimi 的源码位于 `src/`，Magpie 的源码位于 `magpie/src/`。两者使用不同的插件标识，Bob 分别保存服务配置；同名的最大输出 Token 和提示词设置也互不影响。Magpie 的说明见 [magpie/README.md](magpie/README.md)。
 
-## 本地 Magpie 接入（1.3.0）
+## 从合并版 1.3.0 更新
 
-双击 `kimi-translate-1.3.0.bobplugin` 更新原插件，再在 Bob 的「Kimi 翻译」服务设置中配置：
+1. 如果旧 Kimi 服务使用的是 Magpie，先记下该服务的网关设置、模式、自定义提示词和最大输出 Token，再停用该服务。
+2. 双击 `magpie-1.0.0.bobplugin`，在 Bob 的文本翻译服务中添加独立的「Magpie」，填入上述设置并验证。
+3. 双击 `kimi-translate-1.4.0.bobplugin` 更新原来的 Kimi 插件。它沿用 `local.laohu.bob.kimi`，原 Kimi API Key、模型、思考模式、Token 和提示词字段标识不变，但之后只调用 Kimi 官方 API。
+4. 选择并启用需要的独立服务。旧接入方式和网关字段不再显示，也不再参与 Kimi 请求。
 
-| 设置 | 值 |
-| --- | --- |
-| 接入方式 | 本地 Magpie 网关 |
-| Magpie 网关地址 | `http://127.0.0.1:3425/v1` |
-| Magpie 网关密钥 | 本机无需鉴权时留空；需要鉴权时填写网关密钥 |
-| Magpie 模型 ID | 默认 `group/smart-easy`，也可填 `group/smart-split` 或模型列表中的完整 ID |
-| Magpie 推理强度 | 默认遵循网关／模型配置；按支持情况可指定 low、medium、high |
+新 Magpie 的标识为 `local.laohu.bob.magpie`，不会自动读取旧 Kimi 服务里的设置。插件脚本没有跨服务读取配置的接口，因此新服务需要重新填写自定义设置；默认网关地址为 `http://127.0.0.1:3425/v1`、模型为 `group/smart-easy`、推理强度遵循网关默认、最大输出 Token 为 8192，本机无需鉴权时网关密钥可留空。
 
-保持 Magpie 运行，点击验证检查连接及模型，再进行翻译或自定义处理。地址支持本机 `127.0.0.1`、`localhost`、`[::1]` 及自定义端口，可省略 `/v1`，不接受远程地址。
+两份安装包本地构建；本次未发布 GitHub Release，Kimi 的 `appcast.json` 保留已发布版本，Magpie 不使用 Kimi 的更新清单。
 
-Magpie 模式不使用「Kimi API Key」「模型」「思考模式」这三个 Kimi 专属设置，也不发送 Kimi 的 `thinking` 参数。请求使用 `/v1/chat/completions` SSE、`max_tokens` 和可选的 `reasoning_effort`，具体上游由 Magpie 转发。输入文本与提示词先发送给本机网关，再由网关发往所选上游；插件不会把密钥写入代码或安装包。
-
-为保留已有配置，升级后接入方式默认仍是 Kimi 官方 API，需主动切换到 Magpie。插件标识及已有提示词、模式和 Kimi 设置保持兼容。1.3.0 安装包本地构建，现有 `appcast.json` 仍指向已发布的 1.2.2；本次不发布 GitHub Release。
-
-2026-10-14 验证：22 项 Node VM 测试通过，安装包 ZIP 完整性检查通过。通过 Node HTTP 适配器运行插件的 `pluginValidate` 与 `translate`，真实请求本地 Magpie 的 `group/smart-easy`，收到 4 次累计流式输出，`Hello, world.` 完整翻译为「你好，世界。」。本机 Bob 版本为 1.21.1，尚未在 Bob 内安装 1.3.0 或验证实际界面显示；真实网关调用不等于 Bob 宿主验收。
-
-## 安装与使用
+## Kimi 安装与使用
 
 1. 双击安装包，在 Bob 中完成安装。
 2. 在 Bob「设置 / 偏好设置 → 服务 → 文本翻译」添加「Kimi 翻译」。
@@ -70,7 +64,7 @@ $query.text
 - 使用 Kimi Chat Completions SSE 流式输出，Bob 会随着内容生成持续更新结果；最终完整结果仍通过完成回调提交。HTTP 超时 170 秒，插件超时 180 秒，支持 Bob 取消信号。
 - 最大输出 Token 默认 8192，可设置 256～32768。模型思考也消耗额度；截断时提示调整设置或缩短文本。
 - 验证按钮只请求 `/v1/models`；成功表示密钥可访问该模型列表，不保证账户余额充足或翻译请求必定成功。
-- Kimi 官方模式的文本和 API Key 通过 HTTPS 直接发送至 `api.moonshot.cn`。Magpie 模式发送至所配置的本机网关，再由网关转发至上游。密钥由 Bob 插件设置管理；代码不写日志、不保存译文、不回传原始响应。
+- Kimi 插件的文本和 API Key 通过 HTTPS 直接发送至 `api.moonshot.cn`。密钥由 Bob 插件设置管理；代码不写日志、不保存译文、不回传原始响应。
 - 没有自动重试，避免不明确的重复调用费用。
 
 ## 开发与打包
@@ -82,11 +76,13 @@ npm test
 npm run build
 ```
 
-`src/main.js` 只使用 JavaScript 内置对象和 Bob 的 `$http`、`$option`。`tests/plugin.test.cjs` 以 Node VM 模拟 Bob 环境，测试请求参数、语言、SSE 跨分片解析、累计流式回调、截断、错误、取消信号透传与请求隔离。打包仅包含根目录 `info.json` 和 `main.js`。
+`src/main.js` 只使用 JavaScript 内置对象和 Bob 的 `$http`、`$option`。`tests/plugin.test.cjs` 以 Node VM 模拟 Bob 环境，测试请求参数、语言、SSE 跨分片解析、累计流式回调、截断、错误、取消信号透传与请求隔离。构建分别生成两个安装包，每个包只包含自己的根目录 `info.json` 和 `main.js`。
 
-当前模拟测试与 ZIP 完整性检查应在每次构建后重新执行。这些结果不等于真实 JavaScriptCore/Bob 运行或 Kimi 在线调用通过；最后一步是在 Bob 中填入自己的密钥并实际翻译。
+当前模拟测试与 ZIP 完整性检查应在每次构建后重新执行。这些结果不等于真实 JavaScriptCore/Bob 运行通过；Kimi 需要填入自己的密钥实际调用，Magpie 需要在本机网关运行时实际调用。
 
 源码由 Git 管理；安装包生成在仓库上一级目录，不进入提交。
+
+2026-10-14 验证：26 项 Node VM 测试通过，两份安装包 ZIP 完整性检查通过。独立 Magpie 插件通过 Node HTTP 适配器真实调用本地 `group/smart-easy`，模型验证成功，收到 4 次流式输出，`Hello, world.` 完整翻译为「你好，世界。」。本次未在 Bob 内安装两个新版插件或验证配置界面，也未调用 Kimi 官方 API。
 
 ## 参考
 

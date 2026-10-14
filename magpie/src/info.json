@@ -1,0 +1,135 @@
+{
+  "identifier": "local.laohu.bob.magpie",
+  "version": "1.0.0",
+  "category": "translate",
+  "name": "Magpie",
+  "summary": "使用本地 Magpie 网关流式翻译、润色或执行自定义 Prompt。",
+  "icon": "001",
+  "author": "laohu",
+  "minBobVersion": "1.8.0",
+  "options": [
+    {
+      "identifier": "gatewayUrl",
+      "type": "text",
+      "title": "Magpie 网关地址",
+      "defaultValue": "http://127.0.0.1:3425/v1",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "http://127.0.0.1:3425/v1"
+      },
+      "desc": "支持本机 127.0.0.1、localhost 或 [::1]，可省略 /v1。需保持 Magpie 运行。"
+    },
+    {
+      "identifier": "gatewayKey",
+      "type": "text",
+      "title": "Magpie 网关密钥",
+      "textConfig": {
+        "type": "secure",
+        "placeholderText": "本机无需鉴权时可留空"
+      },
+      "desc": "如网关要求鉴权，填入 Magpie 的网关密钥，而非上游服务商密钥。"
+    },
+    {
+      "identifier": "gatewayModel",
+      "type": "text",
+      "title": "Magpie 模型 ID",
+      "defaultValue": "group/smart-easy",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "group/smart-easy"
+      },
+      "desc": "填写 /v1/models 中的完整 ID，例如 group/smart-easy 或 group/smart-split。"
+    },
+    {
+      "identifier": "gatewayEffort",
+      "type": "menu",
+      "title": "Magpie 推理强度",
+      "defaultValue": "default",
+      "menuValues": [
+        {
+          "title": "遵循网关／模型默认",
+          "value": "default"
+        },
+        {
+          "title": "低（low）",
+          "value": "low"
+        },
+        {
+          "title": "中（medium）",
+          "value": "medium"
+        },
+        {
+          "title": "高（high）",
+          "value": "high"
+        }
+      ],
+      "desc": "默认不发送 reasoning_effort，由网关配置决定。指定强度时须确认目标模型支持。"
+    },
+    {
+      "identifier": "maxTokens",
+      "type": "text",
+      "title": "最大输出 Token",
+      "defaultValue": "8192",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "8192"
+      },
+      "desc": "256～32768；由网关转发给所选模型。截断时显示错误，不把不完整结果当作成功。"
+    },
+    {
+      "identifier": "mode",
+      "type": "menu",
+      "title": "模式",
+      "defaultValue": "translate",
+      "menuValues": [
+        {
+          "title": "翻译",
+          "value": "translate"
+        },
+        {
+          "title": "润色",
+          "value": "polish"
+        },
+        {
+          "title": "自定义 Prompt",
+          "value": "custom"
+        }
+      ],
+      "desc": "翻译为目标语言；润色保留原语言；自定义模式完全使用下方提示词。可添加多个 Magpie 服务，分别设置不同模式。"
+    },
+    {
+      "identifier": "systemPrompt",
+      "type": "text",
+      "title": "角色设定（System Prompt）",
+      "defaultValue": "",
+      "textConfig": {
+        "type": "visible",
+        "height": 200,
+        "placeholderText": "可留空，例如：你是一位写作教练，请分析文本并给出修改建议。",
+        "keyWords": [
+          "$query.text",
+          "$query.detectFromLang",
+          "$query.detectToLang"
+        ]
+      },
+      "desc": "仅自定义模式有效；留空不发送 system 消息。支持 $query.text（输入文本）、$query.detectFromLang（原语言名称）、$query.detectToLang（目标语言名称）。"
+    },
+    {
+      "identifier": "userPrompt",
+      "type": "text",
+      "title": "用户指令（User Prompt）",
+      "defaultValue": "$query.text",
+      "textConfig": {
+        "type": "visible",
+        "height": 200,
+        "keyWords": [
+          "$query.text",
+          "$query.detectFromLang",
+          "$query.detectToLang"
+        ]
+      },
+      "desc": "仅自定义模式有效；留空使用 $query.text。示例：总结以下文本：\\n$query.text。语言变量优先使用 Bob 手动选择，否则使用检测结果，名称为英文。"
+    }
+  ],
+  "homepage": "https://github.com/laohubb/bob-plugin-kimi-translator"
+}

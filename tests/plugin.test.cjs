@@ -5,19 +5,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 const code = fs.readFileSync(path.join(__dirname, '../src/main.js'), 'utf8');
 const info = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/info.json'), 'utf8'));
-function harness(options = {}) {
+const magpieCode = fs.readFileSync(path.join(__dirname, '../magpie/src/main.js'), 'utf8');
+const magpieInfo = JSON.parse(fs.readFileSync(path.join(__dirname, '../magpie/src/info.json'), 'utf8'));
+function harness(options = {}, plugin = 'kimi') {
   const requests = [], replies = [], streams = [];
-  const defaults = Object.fromEntries(info.options.map(o => [o.identifier, o.defaultValue || '']));
+  const manifest = plugin === 'magpie' ? magpieInfo : info;
+  const defaults = Object.fromEntries(manifest.options.map(o => [o.identifier, o.defaultValue || '']));
   const context = vm.createContext({ $option: { ...defaults, apiKey: 'test-key', ...options },
     $http: {
       request: request => requests.push(request),
       streamRequest: request => requests.push(request)
     } });
-  vm.runInContext(code, context);
+  vm.runInContext(plugin === 'magpie' ? magpieCode : code, context);
   const query = { text: 'Hello\n\nWorld', from: 'auto', to: 'auto', detectFrom: 'en', detectTo: 'zh-Hans',
     cancelSignal: {}, onStream: value => streams.push(value), onCompletion: value => replies.push(value) };
   return { context, requests, replies, streams, query, run() { context.translate(query); } };
 }
+function gatewayHarness(options = {}) { return harness(options, 'magpie'); }
 function event(content, reason = null) {
   return `data: ${JSON.stringify({ choices: [{ delta: content === undefined ? {} : { content }, finish_reason: reason }] })}\n\n`;
 }
@@ -191,7 +195,7 @@ test('Bob stream envelope displays cumulative text before HTTP completion', () =
 });
 
 test('Magpie defaults use loopback, a routing group and no Kimi key or thinking parameters', () => {
-  const h = harness({ provider: 'magpie', apiKey: 'kimi-key-must-not-leak', thinking: 'enabled' });
+  const h = gatewayHarness({ apiKey: 'kimi-key-must-not-leak', thinking: 'enabled' });
   h.run();
   const r = h.requests[0];
   assert.equal(r.url, 'http://127.0.0.1:3425/v1/chat/completions');
@@ -206,7 +210,7 @@ test('Magpie defaults use loopback, a routing group and no Kimi key or thinking 
 });
 
 test('Magpie supports optional gateway authentication, custom models and explicit effort', () => {
-  const h = harness({ provider: 'magpie', apiKey: '', gatewayKey: 'gateway-test-key',
+  const h = gatewayHarness({ apiKey: '', gatewayKey: 'gateway-test-key',
     gatewayModel: 'codex/gpt-6-astra', gatewayEffort: 'low', gatewayUrl: 'http://localhost:3425/' });
   h.run();
   const r = h.requests[0];
@@ -219,10 +223,10 @@ test('Magpie supports optional gateway authentication, custom models and explici
 
 test('Magpie normalizes local addresses and rejects malformed or external destinations', () => {
   for (const url of ['http://127.0.0.1:3425', 'http://127.0.0.1:3425/v1/', 'http://127.0.0.1:3425/V1']) {
-    const h = harness({ provider: 'magpie', gatewayUrl: url }); h.run();
+    const h = gatewayHarness({ gatewayUrl: url }); h.run();
     assert.equal(h.requests[0].url, 'http://127.0.0.1:3425/v1/chat/completions');
   }
-  const v6 = harness({ provider: 'magpie', gatewayUrl: 'http://[::1]:3425/v1' }); v6.run();
+  const v6 = gatewayHarness({ gatewayUrl: 'http://[::1]:3425/v1' }); v6.run();
   assert.equal(v6.requests[0].url, 'http://[::1]:3425/v1/chat/completions');
   for (const options of [
     { gatewayUrl: 'https://example.com/v1' }, { gatewayUrl: 'http://localhost.evil/v1' },
@@ -230,7 +234,7 @@ test('Magpie normalizes local addresses and rejects malformed or external destin
     { gatewayUrl: 'http://localhost:3425/v1/chat/completions' },
     { gatewayKey: 'bad\nkey' }, { gatewayModel: 'bad model' }, { gatewayEffort: 'invalid' }
   ]) {
-    const h = harness({ provider: 'magpie', ...options }); h.run();
+    const h = gatewayHarness({ ...options }); h.run();
     assert.equal(h.requests.length, 0);
     assert.ok(h.replies[0].error);
   }
@@ -238,7 +242,7 @@ test('Magpie normalizes local addresses and rejects malformed or external destin
 
 test('Magpie validation uses its own URL, key and model list', () => {
   for (const available of [true, false]) {
-    const h = harness({ provider: 'magpie', apiKey: '', gatewayModel: 'group/smart-split' });
+    const h = gatewayHarness({ apiKey: '', gatewayModel: 'group/smart-split' });
     h.context.pluginValidate(v => h.replies.push(v));
     const r = h.requests[0];
     assert.equal(r.url, 'http://127.0.0.1:3425/v1/models');
@@ -250,7 +254,7 @@ test('Magpie validation uses its own URL, key and model list', () => {
 
 test('Magpie errors identify the gateway without exposing response bodies or credentials', () => {
   for (const status of [401, 403, 429, 502]) {
-    const h = harness({ provider: 'magpie', gatewayKey: 'gateway-test-key' }); h.run();
+    const h = gatewayHarness({ gatewayKey: 'gateway-test-key' }); h.run();
     h.requests[0].handler({ response: { statusCode: status }, data: 'gateway-test-key sensitive-text' });
     const reply = JSON.stringify(h.replies[0]);
     assert.match(reply, /Magpie/);
@@ -260,13 +264,71 @@ test('Magpie errors identify the gateway without exposing response bodies or cre
 });
 
 test('Magpie preserves custom and polish modes and treats truncation as failure', () => {
-  const custom = harness({ provider: 'magpie', mode: 'custom', systemPrompt: 'Summarize', userPrompt: '$query.text' });
+  const custom = gatewayHarness({ mode: 'custom', systemPrompt: 'Summarize', userPrompt: '$query.text' });
   custom.run();
   assert.equal(custom.requests[0].body.messages[0].content, 'Summarize');
   finish(custom.requests[0], 'Summary');
   assert.equal(custom.replies[0].result.to, undefined);
-  const polish = harness({ provider: 'magpie', mode: 'polish' }); polish.run();
+  const polish = gatewayHarness({ mode: 'polish' }); polish.run();
   assert.match(polish.requests[0].body.messages[0].content, /Do not translate/);
   finish(polish.requests[0], 'partial', 'length');
   assert.ok(polish.replies[0].error);
+});
+
+test('independent plugin identities expose only their own provider settings', () => {
+  assert.equal(info.identifier, 'local.laohu.bob.kimi');
+  assert.equal(magpieInfo.identifier, 'local.laohu.bob.magpie');
+  assert.notEqual(info.identifier, magpieInfo.identifier);
+  assert.deepEqual(info.options.map(o => o.identifier),
+    ['apiKey', 'model', 'thinking', 'maxTokens', 'mode', 'systemPrompt', 'userPrompt']);
+  assert.deepEqual(magpieInfo.options.map(o => o.identifier),
+    ['gatewayUrl', 'gatewayKey', 'gatewayModel', 'gatewayEffort', 'maxTokens', 'mode', 'systemPrompt', 'userPrompt']);
+  assert.equal(magpieInfo.appcast, undefined, 'Magpie must not use the Kimi update feed');
+});
+
+test('leftover settings cannot switch either standalone plugin to the other provider', () => {
+  const kimi = harness({ provider: 'magpie', gatewayModel: 'group/smart-split', gatewayKey: 'ignored-gateway-key' });
+  kimi.run();
+  assert.equal(kimi.requests[0].url, 'https://api.moonshot.cn/v1/chat/completions');
+  assert.equal(kimi.requests[0].body.model, 'kimi-k2.6');
+  assert.ok(!JSON.stringify(kimi.requests[0]).includes('ignored-gateway-key'));
+  const magpie = gatewayHarness({ provider: 'kimi', apiKey: 'ignored-kimi-key', model: 'kimi-k3', thinking: 'enabled' });
+  magpie.run();
+  assert.equal(magpie.requests[0].body.model, 'group/smart-easy');
+  assert.equal(magpie.requests[0].body.thinking, undefined);
+  assert.ok(!JSON.stringify(magpie.requests[0]).includes('ignored-kimi-key'));
+});
+
+test('each plugin has its own token limit and ignores invalid settings belonging to the other plugin', () => {
+  const kimi = harness({ maxTokens: '1024', gatewayEffort: 'invalid', gatewayUrl: 'invalid' });
+  const magpie = gatewayHarness({ maxTokens: '2048', model: 'invalid', apiKey: 'bad\nkey' });
+  kimi.run(); magpie.run();
+  assert.equal(kimi.requests[0].body.max_tokens, 1024);
+  assert.equal(magpie.requests[0].body.max_tokens, 2048);
+  for (const maxTokens of ['1', '32769', '8192abc']) {
+    const h = gatewayHarness({ maxTokens }); h.run();
+    assert.equal(h.requests.length, 0);
+    assert.equal(h.replies[0].error.type, 'param');
+  }
+});
+
+test('Magpie preserves split SSE chunks, cancellation and one completion per request', () => {
+  const h = gatewayHarness(); h.run();
+  const r = h.requests[0];
+  assert.equal(r.cancelSignal, h.query.cancelSignal);
+  const payload = event('你好') + event('\n\n世界') + event(undefined, 'stop') + 'data: [DONE]\n\n';
+  for (const chunk of [payload.slice(0, 9), payload.slice(9, 47), payload.slice(47)]) {
+    r.streamHandler({ text: chunk });
+  }
+  r.handler({ response: { statusCode: 200 } });
+  r.handler({ response: { statusCode: 200 } });
+  r.streamHandler({ text: event('ignored') });
+  assert.equal(h.replies.length, 1);
+  assert.deepEqual(h.streams.map(frame => frame.result.content.text), ['你好', '你好\n\n世界']);
+  h.query.text = 'Second'; h.run();
+  assert.ok(!JSON.stringify(h.requests[1].body).includes('Hello'));
+  h.requests[1].handler({ error: { message: 'cancelled' } });
+  h.requests[1].streamHandler({ text: event('ignored') });
+  assert.equal(h.replies[1].error.type, 'network');
+  assert.equal(h.streams.length, 2);
 });

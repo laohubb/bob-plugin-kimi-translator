@@ -21,38 +21,18 @@ function once(callback) {
 }
 
 function configuration() {
-    var provider = String($option.provider || 'kimi');
-    if (['kimi', 'magpie'].indexOf(provider) < 0) {
-        throw failure('param', '请选择 Kimi 或本地 Magpie 接入方式。');
-    }
-    var gateway = provider === 'magpie';
-    var key = String((gateway ? $option.gatewayKey : $option.apiKey) || '').trim();
-    if (!gateway && !key) { throw failure('secretKey', '请在插件设置中填写 Kimi API Key。'); }
+    var key = String($option.apiKey || '').trim();
+    if (!key) { throw failure('secretKey', '请在插件设置中填写 Kimi API Key。'); }
     if (/\s/.test(key)) { throw failure('secretKey', 'API Key 中不能包含空格或换行。'); }
-    var baseUrl = 'https://api.moonshot.cn/v1';
-    if (gateway) {
-        baseUrl = String($option.gatewayUrl || 'http://127.0.0.1:3425/v1').trim();
-        if (!/^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/v1)?\/?$/i.test(baseUrl)) {
-            throw failure('param', 'Magpie 地址须为本机 HTTP/HTTPS 地址，例如 http://127.0.0.1:3425/v1。');
-        }
-        baseUrl = baseUrl.replace(/\/$/, '');
-        if (/\/v1$/i.test(baseUrl)) { baseUrl = baseUrl.replace(/\/v1$/i, '/v1'); }
-        else { baseUrl += '/v1'; }
-    }
-    var model = String(gateway ? ($option.gatewayModel || 'group/smart-easy') : ($option.model || 'kimi-k2.6')).trim();
-    if (gateway ? !/^[a-zA-Z0-9_.~:/-]+$/.test(model) : ['kimi-k2.6', 'kimi-k3', 'kimi-k2.7-code'].indexOf(model) < 0) {
-        throw failure('param', '请选择插件支持的模型。');
-    }
-    var effort = String($option.gatewayEffort || 'default');
-    if (gateway && ['default', 'low', 'medium', 'high'].indexOf(effort) < 0) {
-        throw failure('param', '请选择有效的 Magpie 推理强度。');
+    var model = String($option.model || 'kimi-k2.6').trim();
+    if (['kimi-k2.6', 'kimi-k3', 'kimi-k2.7-code'].indexOf(model) < 0) {
+        throw failure('param', '请选择插件支持的 Kimi 模型。');
     }
     var tokens = String($option.maxTokens || '8192').trim();
     if (!/^\d+$/.test(tokens) || Number(tokens) < 256 || Number(tokens) > 32768) {
         throw failure('param', '最大输出 Token 必须为 256～32768 之间的整数。');
     }
-    return { key: key, model: model, tokens: Number(tokens), baseUrl: baseUrl,
-        gateway: gateway, effort: effort, service: gateway ? 'Magpie' : 'Kimi' };
+    return { key: key, model: model, tokens: Number(tokens), baseUrl: 'https://api.moonshot.cn/v1', service: 'Kimi' };
 }
 
 function requestHeaders(config, json) {
@@ -74,9 +54,7 @@ function responseError(resp, config) {
         return failure('api', service + ' 服务返回 HTTP ' + status + '，请稍后重试。');
     }
     if (!resp || resp.error || !status) {
-        return failure('network', config.gateway ?
-            'Magpie 请求未完成，请确认本地网关正在运行、地址正确，或检查是否取消或超时。' :
-            '请求未完成，可能已取消、超时或网络不可用。请检查网络后重试。');
+        return failure('network', '请求未完成，可能已取消、超时或网络不可用。请检查网络后重试。');
     }
     return null;
 }
@@ -153,11 +131,7 @@ function translate(query, completion) {
             messages: messages,
             stream: true
         };
-        if (config.gateway) {
-            // Let Magpie route the model and translate provider-specific parameters.
-            body.max_tokens = config.tokens;
-            if (config.effort !== 'default') { body.reasoning_effort = config.effort; }
-        } else if (config.model === 'kimi-k3') {
+        if (config.model === 'kimi-k3') {
             body.reasoning_effort = $option.thinking === 'enabled' ? 'high' : 'low';
             body.max_completion_tokens = config.tokens;
         } else {

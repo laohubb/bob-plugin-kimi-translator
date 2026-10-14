@@ -1,60 +1,13 @@
 {
   "identifier": "local.laohu.bob.kimi",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "category": "translate",
   "name": "Kimi 翻译",
-  "summary": "通过 Kimi API 或本地 Magpie 网关流式翻译、润色或执行自定义 Prompt。",
+  "summary": "使用 Kimi 官方 API 流式翻译、润色或执行自定义 Prompt。",
   "icon": "001",
   "author": "laohu",
   "minBobVersion": "1.8.0",
   "options": [
-    {
-      "identifier": "provider",
-      "type": "menu",
-      "title": "接入方式",
-      "defaultValue": "kimi",
-      "menuValues": [
-        { "title": "Kimi 官方 API", "value": "kimi" },
-        { "title": "本地 Magpie 网关", "value": "magpie" }
-      ],
-      "desc": "已有服务保留 Kimi 接入。选择 Magpie 后使用下方网关设置，不发送 Kimi API Key 或 Kimi 专属思考参数。"
-    },
-    {
-      "identifier": "gatewayUrl",
-      "type": "text",
-      "title": "Magpie 网关地址",
-      "defaultValue": "http://127.0.0.1:3425/v1",
-      "textConfig": { "type": "visible", "placeholderText": "http://127.0.0.1:3425/v1" },
-      "desc": "仅 Magpie 模式有效；支持本机 127.0.0.1、localhost 或 [::1]，可省略 /v1。需保持 Magpie 运行。"
-    },
-    {
-      "identifier": "gatewayKey",
-      "type": "text",
-      "title": "Magpie 网关密钥",
-      "textConfig": { "type": "secure", "placeholderText": "本机无需鉴权时可留空" },
-      "desc": "仅 Magpie 模式有效；如网关要求鉴权，填入 Magpie 的网关密钥，而非上游服务商密钥。"
-    },
-    {
-      "identifier": "gatewayModel",
-      "type": "text",
-      "title": "Magpie 模型 ID",
-      "defaultValue": "group/smart-easy",
-      "textConfig": { "type": "visible", "placeholderText": "group/smart-easy" },
-      "desc": "仅 Magpie 模式有效；填写 /v1/models 中的完整 ID，例如 group/smart-easy 或 group/smart-split。"
-    },
-    {
-      "identifier": "gatewayEffort",
-      "type": "menu",
-      "title": "Magpie 推理强度",
-      "defaultValue": "default",
-      "menuValues": [
-        { "title": "遵循网关／模型默认", "value": "default" },
-        { "title": "低（low）", "value": "low" },
-        { "title": "中（medium）", "value": "medium" },
-        { "title": "高（high）", "value": "high" }
-      ],
-      "desc": "仅 Magpie 模式有效；默认不发送 reasoning_effort，由网关配置决定。指定强度时须确认目标模型支持。"
-    },
     {
       "identifier": "apiKey",
       "type": "text",
@@ -64,6 +17,55 @@
         "placeholderText": "填写 Moonshot 开放平台 API Key"
       },
       "desc": "在 platform.kimi.com 创建 API Key；请求发送至 api.moonshot.cn。"
+    },
+    {
+      "identifier": "model",
+      "type": "menu",
+      "title": "模型",
+      "defaultValue": "kimi-k2.6",
+      "menuValues": [
+        {
+          "title": "Kimi K2.6",
+          "value": "kimi-k2.6"
+        },
+        {
+          "title": "Kimi K3",
+          "value": "kimi-k3"
+        },
+        {
+          "title": "Kimi K2.7 Code",
+          "value": "kimi-k2.7-code"
+        }
+      ],
+      "desc": "请使用账户支持的模型；验证按钮检查密钥和模型列表，不生成译文。"
+    },
+    {
+      "identifier": "thinking",
+      "type": "menu",
+      "title": "思考模式",
+      "defaultValue": "disabled",
+      "menuValues": [
+        {
+          "title": "快速响应",
+          "value": "disabled"
+        },
+        {
+          "title": "深入思考",
+          "value": "enabled"
+        }
+      ],
+      "desc": "K2.6：关闭/开启思考；K3：低/高推理强度；K2.7 Code 始终思考。仅显示最终内容。"
+    },
+    {
+      "identifier": "maxTokens",
+      "type": "text",
+      "title": "最大输出 Token",
+      "defaultValue": "8192",
+      "textConfig": {
+        "type": "visible",
+        "placeholderText": "8192"
+      },
+      "desc": "256～32768；思考也会占用输出额度。截断时显示错误，不把不完整译文当作成功。"
     },
     {
       "identifier": "mode",
@@ -118,55 +120,6 @@
         ]
       },
       "desc": "仅自定义模式有效；留空使用 $query.text。示例：总结以下文本：\\n$query.text。语言变量优先使用 Bob 手动选择，否则使用检测结果，名称为英文。"
-    },
-    {
-      "identifier": "model",
-      "type": "menu",
-      "title": "模型",
-      "defaultValue": "kimi-k2.6",
-      "menuValues": [
-        {
-          "title": "Kimi K2.6",
-          "value": "kimi-k2.6"
-        },
-        {
-          "title": "Kimi K3",
-          "value": "kimi-k3"
-        },
-        {
-          "title": "Kimi K2.7 Code",
-          "value": "kimi-k2.7-code"
-        }
-      ],
-      "desc": "请使用账户支持的模型；验证按钮检查密钥和模型列表，不生成译文。"
-    },
-    {
-      "identifier": "thinking",
-      "type": "menu",
-      "title": "思考模式",
-      "defaultValue": "disabled",
-      "menuValues": [
-        {
-          "title": "快速响应",
-          "value": "disabled"
-        },
-        {
-          "title": "深入思考",
-          "value": "enabled"
-        }
-      ],
-      "desc": "K2.6：关闭/开启思考；K3：低/高推理强度；K2.7 Code 始终思考。仅显示最终内容。"
-    },
-    {
-      "identifier": "maxTokens",
-      "type": "text",
-      "title": "最大输出 Token",
-      "defaultValue": "8192",
-      "textConfig": {
-        "type": "visible",
-        "placeholderText": "8192"
-      },
-      "desc": "256～32768；思考也会占用输出额度。截断时显示错误，不把不完整译文当作成功。"
     }
   ],
   "homepage": "https://github.com/laohubb/bob-plugin-kimi-translator",
